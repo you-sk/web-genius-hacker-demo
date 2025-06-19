@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hacking Terminal Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            color: #00ff00;
+            background-image: 
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(0, 255, 0, 0.03),
+                    rgba(0, 255, 0, 0.03) 1px,
+                    transparent 1px,
+                    transparent 2px
+                );
+        }
+
+        .desktop {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .window {
+            position: absolute;
+            background-color: #000;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), 0 5px 20px rgba(0, 0, 0, 0.8);
+            transition: box-shadow 0.3s;
+            overflow: hidden;
+        }
+
+        .window.active {
+            z-index: 100;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.8), 0 5px 30px rgba(0, 0, 0, 0.9);
+        }
+
+        .window.alert {
+            border-color: #ff0000;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.8);
+            animation: alertPulse 1s infinite;
+        }
+
+        @keyframes alertPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .window-header {
+            background-color: #00ff00;
+            color: #000;
+            padding: 5px 10px;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: move;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.3s;
+        }
+
+        .window.alert .window-header {
+            background-color: #ff0000;
+            animation: headerFlash 0.5s infinite;
+        }
+
+        @keyframes headerFlash {
+            0%, 100% { background-color: #ff0000; }
+            50% { background-color: #ffff00; }
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 5px;
+        }
+
+        .window-control {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .window-minimize {
+            background-color: #ffff00;
+        }
+
+        .window-maximize {
+            background-color: #00ff00;
+        }
+
+        .window-close {
+            background-color: #ff0000;
+        }
+
+        .window-content {
+            height: calc(100% - 30px);
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .window-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .window-content::-webkit-scrollbar-track {
+            background: #001100;
+        }
+
+        .window-content::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 4px;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 14px;
+            background-color: #00ff00;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .progress-bar {
+            display: inline-block;
+            width: 200px;
+            height: 10px;
+            background-color: #001100;
+            border: 1px solid #00ff00;
+            margin-left: 10px;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #00ff00;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .warning {
+            color: #ffff00;
+            animation: pulse 1s infinite;
+        }
+
+        .error {
+            color: #ff0000;
+            font-weight: bold;
+            animation: errorBlink 0.5s infinite;
+        }
+
+        @keyframes errorBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .success {
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        .critical {
+            color: #ff00ff;
+            font-weight: bold;
+            text-shadow: 0 0 10px #ff00ff;
+        }
+
+        .matrix-rain {
+            position: absolute;
+            top: 30px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            pointer-events: none;
+            opacity: 0.1;
+        }
+
+        .matrix-column {
+            position: absolute;
+            top: -100%;
+            font-size: 14px;
+            line-height: 1;
+            animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+            to {
+                top: 100%;
+            }
+        }
+
+        .status-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.9);
+            border: 3px solid #00ff00;
+            padding: 20px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 1000;
+            display: none;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(0, 255, 0, 0.8);
+        }
+
+        .status-message.show {
+            display: block;
+            animation: statusPop 0.5s ease-out;
+        }
+
+        .status-message.error {
+            border-color: #ff0000;
+            color: #ff0000;
+            box-shadow: 0 0 50px rgba(255, 0, 0, 0.8);
+        }
+
+        .status-message.success {
+            border-color: #00ff00;
+            color: #00ff00;
+            box-shadow: 0 0 50px rgba(0, 255, 0, 0.8);
+        }
+
+        @keyframes statusPop {
+            0% { transform: translate(-50%, -50%) scale(0); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .minimized-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            background-color: rgba(0, 255, 0, 0.1);
+            border-top: 1px solid #00ff00;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            gap: 10px;
+        }
+
+        .minimized-window {
+            background-color: rgba(0, 255, 0, 0.2);
+            border: 1px solid #00ff00;
+            padding: 5px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .minimized-window:hover {
+            background-color: rgba(0, 255, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="desktop" id="desktop">
+        <!-- Windows will be dynamically created here -->
+    </div>
+
+    <div class="minimized-bar" id="minimizedBar"></div>
+    <div class="status-message" id="statusMessage"></div>
+
+    <script>
+        // Window management
+        let windows = [];
+        let activeWindow = null;
+        let zIndex = 10;
+
+        class Window {
+            constructor(id, title, x, y, width, height) {
+                this.id = id;
+                this.title = title;
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.minimized = false;
+                this.element = this.createElement();
+                this.contentElement = this.element.querySelector('.window-content');
+                this.makeDraggable();
+                windows.push(this);
+            }
+
+            createElement() {
+                const window = document.createElement('div');
+                window.className = 'window';
+                window.id = this.id;
+                window.style.left = this.x + 'px';
+                window.style.top = this.y + 'px';
+                window.style.width = this.width + 'px';
+                window.style.height = this.height + 'px';
+                window.innerHTML = `
+                    <div class="window-header">
+                        <span>${this.title}</span>
+                        <div class="window-controls">
+                            <div class="window-control window-minimize"></div>
+                            <div class="window-control window-maximize"></div>
+                            <div class="window-control window-close"></div>
+                        </div>
+                    </div>
+                    <div class="matrix-rain" id="matrix-${this.id}" style="display: ${this.id === 'window1' ? 'block' : 'none'}"></div>
+                    <div class="window-content"></div>
+                `;
+                
+                document.getElementById('desktop').appendChild(window);
+                
+                // Window controls
+                window.querySelector('.window-minimize').addEventListener('click', () => this.minimize());
+                window.querySelector('.window-maximize').addEventListener('click', () => this.maximize());
+                window.querySelector('.window-close').addEventListener('click', () => this.close());
+                
+                // Click to focus
+                window.addEventListener('mousedown', () => this.focus());
+                
+                return window;
+            }
+
+            makeDraggable() {
+                const header = this.element.querySelector('.window-header');
+                let isDragging = false;
+                let offsetX, offsetY;
+
+                header.addEventListener('mousedown', (e) => {
+                    if (e.target.classList.contains('window-control')) return;
+                    isDragging = true;
+                    offsetX = e.clientX - this.element.offsetLeft;
+                    offsetY = e.clientY - this.element.offsetTop;
+                    this.focus();
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    const newX = e.clientX - offsetX;
+                    const newY = e.clientY - offsetY;
+                    
+                    // Keep window within viewport
+                    this.x = Math.max(0, Math.min(window.innerWidth - this.width, newX));
+                    this.y = Math.max(0, Math.min(window.innerHeight - this.height - 30, newY));
+                    
+                    this.element.style.left = this.x + 'px';
+                    this.element.style.top = this.y + 'px';
+                });
+
+                document.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+            }
+
+            focus() {
+                if (activeWindow) {
+                    activeWindow.element.classList.remove('active');
+                }
+                this.element.classList.add('active');
+                this.element.style.zIndex = ++zIndex;
+                activeWindow = this;
+            }
+
+            minimize() {
+                this.minimized = true;
+                this.element.style.display = 'none';
+                
+                const minButton = document.createElement('div');
+                minButton.className = 'minimized-window';
+                minButton.textContent = this.title;
+                minButton.onclick = () => this.restore();
+                document.getElementById('minimizedBar').appendChild(minButton);
+                this.minButton = minButton;
+            }
+
+            restore() {
+                this.minimized = false;
+                this.element.style.display = 'block';
+                this.focus();
+                if (this.minButton) {
+                    this.minButton.remove();
+                    this.minButton = null;
+                }
+            }
+
+            maximize() {
+                if (this.maximized) {
+                    this.element.style.left = this.x + 'px';
+                    this.element.style.top = this.y + 'px';
+                    this.element.style.width = this.width + 'px';
+                    this.element.style.height = this.height + 'px';
+                    this.maximized = false;
+                } else {
+                    this.element.style.left = '0px';
+                    this.element.style.top = '0px';
+                    this.element.style.width = '100%';
+                    this.element.style.height = 'calc(100% - 30px)';
+                    this.maximized = true;
+                }
+            }
+
+            close() {
+                this.element.remove();
+                windows = windows.filter(w => w !== this);
+                if (this.minButton) {
+                    this.minButton.remove();
+                }
+            }
+
+            setAlert(alert) {
+                if (alert) {
+                    this.element.classList.add('alert');
+                } else {
+                    this.element.classList.remove('alert');
+                }
+            }
+        }
+
+        // Create windows with different sizes based on information density
+        const window1 = new Window('window1', 'SYSTEM BREACH TERMINAL 01', 50, 30, 600, 400);
+        const window2 = new Window('window2', 'SECURITY MONITOR 02', 700, 100, 500, 350);
+        const window3 = new Window('window3', 'PACKET ANALYZER 03', 100, 450, 650, 300);
+        const window4 = new Window('window4', 'EXPLOIT FRAMEWORK 04', 750, 400, 550, 380);
+
+        // Global story state
+        let storyState = {
+            accessLevel: 0,
+            detectionLevel: 0,
+            successCount: 0,
+            failCount: 0
+        };
+
+        // Status message display
+        function showStatus(message, type = 'success', duration = 2000) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message show ${type}`;
+            setTimeout(() => {
+                statusEl.classList.remove('show');
+            }, duration);
+        }
+
+        // Terminal 1: System breach with story
+        const terminal1 = window1.contentElement;
+        const breachScenarios = [
+            {
+                commands: [
+                    'Scanning for vulnerabilities...',
+                    'Found weak SSH configuration',
+                    'Attempting brute force attack...',
+                    'Trying password: admin123...',
+                    'Trying password: password...',
+                    'Trying password: letmein...'
+                ],
+                success: false,
+                result: 'LOGIN FAILED - Too many attempts',
+                alert: true
+            },
+            {
+                commands: [
+                    'Detecting firewall configuration...',
+                    'Firewall: pfSense 2.4.5',
+                    'Searching for known exploits...',
+                    'CVE-2021-41282 found!',
+                    'Crafting malicious packet...',
+                    'Bypassing firewall rules...'
+                ],
+                success: true,
+                result: 'FIREWALL BYPASSED SUCCESSFULLY'
+            },
+            {
+                commands: [
+                    'Initiating SQL injection test...',
+                    'Target: login.php?user=admin',
+                    "Payload: ' OR '1'='1",
+                    'Response: 200 OK',
+                    'Extracting database schema...',
+                    'Tables found: users, passwords, credit_cards'
+                ],
+                success: true,
+                result: 'DATABASE ACCESS GRANTED',
+                critical: true
+            },
+            {
+                commands: [
+                    'Attempting privilege escalation...',
+                    'Current user: www-data',
+                    'Searching for SUID binaries...',
+                    'Found: /usr/bin/sudo',
+                    'Exploiting sudo vulnerability...',
+                    'Kernel panic detected!'
+                ],
+                success: false,
+                result: 'SYSTEM CRASH - Connection lost',
+                alert: true
+            },
+            {
+                commands: [
+                    'Deploying reverse shell...',
+                    'Listener started on port 4444',
+                    'Executing payload...',
+                    'Connection established',
+                    'Shell access confirmed',
+                    'whoami: root'
+                ],
+                success: true,
+                result: 'ROOT ACCESS ACHIEVED',
+                critical: true
+            }
+        ];
+
+        let scenarioIndex = 0;
+        function runBreachScenario() {
+            const scenario = breachScenarios[scenarioIndex];
+            terminal1.innerHTML = '';
+            let cmdIndex = 0;
+
+            function typeCommand() {
+                if (cmdIndex < scenario.commands.length) {
+                    const line = document.createElement('div');
+                    line.innerHTML = `$ ${scenario.commands[cmdIndex]}`;
+                    terminal1.appendChild(line);
+                    terminal1.scrollTop = terminal1.scrollHeight;
+                    cmdIndex++;
+                    setTimeout(typeCommand, 800);
+                } else {
+                    // Show result
+                    setTimeout(() => {
+                        const resultLine = document.createElement('div');
+                        const resultClass = scenario.success ? 
+                            (scenario.critical ? 'critical' : 'success') : 'error';
+                        resultLine.innerHTML = `<span class="${resultClass}">[${scenario.result}]</span>`;
+                        terminal1.appendChild(resultLine);
+                        
+                        // Update story state
+                        if (scenario.success) {
+                            storyState.successCount++;
+                            storyState.accessLevel++;
+                            showStatus(scenario.result, 'success');
+                        } else {
+                            storyState.failCount++;
+                            storyState.detectionLevel += 2;
+                            showStatus(scenario.result, 'error');
+                        }
+
+                        // Trigger alerts if needed
+                        if (scenario.alert) {
+                            triggerSecurityAlert();
+                        }
+
+                        // Next scenario
+                        scenarioIndex = (scenarioIndex + 1) % breachScenarios.length;
+                        setTimeout(runBreachScenario, 3000);
+                    }, 1000);
+                }
+            }
+            typeCommand();
+        }
+
+        // Terminal 2: Security monitor with defensive responses
+        const terminal2 = window2.contentElement;
+        const securityEvents = [
+            'IDS: Monitoring network traffic...',
+            'Firewall: All systems operational',
+            'Anti-virus: Scanning for threats...',
+            'Access Control: Authentication required',
+            'Encryption: SSL/TLS active'
+        ];
+
+        const alertEvents = [
+            'ALERT: Suspicious login attempt detected!',
+            'WARNING: Port scan in progress',
+            'CRITICAL: Unauthorized access attempt!',
+            'DANGER: Malicious payload detected',
+            'EMERGENCY: System breach in progress!'
+        ];
+
+        function monitorSecurity() {
+            const isAlert = storyState.detectionLevel > 3 && Math.random() > 0.5;
+            const line = document.createElement('div');
+            
+            if (isAlert) {
+                const alert = alertEvents[Math.floor(Math.random() * alertEvents.length)];
+                line.innerHTML = `<span class="error">${alert}</span>`;
+                window2.setAlert(true);
+                setTimeout(() => {
+                    window2.setAlert(false);
+                }, 2000);
+            } else {
+                const event = securityEvents[Math.floor(Math.random() * securityEvents.length)];
+                line.innerHTML = `[${new Date().toTimeString().split(' ')[0]}] ${event}`;
+            }
+            
+            terminal2.appendChild(line);
+            if (terminal2.children.length > 20) {
+                terminal2.removeChild(terminal2.firstChild);
+            }
+            terminal2.scrollTop = terminal2.scrollHeight;
+            
+            setTimeout(monitorSecurity, isAlert ? 500 : 2000);
+        }
+
+        // Terminal 3: Enhanced packet analyzer with attack patterns
+        const terminal3 = window3.contentElement;
+        const normalPackets = [
+            'TCP 192.168.1.105:443 > 10.0.0.1:52841 [ACK] Seq=1 Win=65535',
+            'UDP 10.0.0.1:53 > 192.168.1.105:53 DNS Standard query',
+            'HTTP GET /index.html HTTP/1.1',
+            'TLS Client Hello SNI=www.example.com'
+        ];
+
+        const attackPackets = [
+            '<span class="warning">TCP 10.0.0.1:4444 > 192.168.1.105:4444 BACKDOOR ACTIVE</span>',
+            '<span class="error">HTTP POST /admin/upload.php - MALICIOUS FILE DETECTED</span>',
+            '<span class="warning">TCP SYN FLOOD DETECTED - 1000 packets/sec</span>',
+            '<span class="critical">EXPLOIT: Buffer overflow attempt in progress</span>',
+            '<span class="error">SQL: DROP TABLE users; -- INJECTION ATTEMPT</span>'
+        ];
+
+        function analyzePackets() {
+            const line = document.createElement('div');
+            const isAttack = storyState.accessLevel > 2 && Math.random() > 0.7;
+            
+            if (isAttack) {
+                const packet = attackPackets[Math.floor(Math.random() * attackPackets.length)];
+                line.innerHTML = `[${new Date().toTimeString().split(' ')[0]}] ${packet}`;
+            } else {
+                const packet = normalPackets[Math.floor(Math.random() * normalPackets.length)];
+                line.innerHTML = `[${new Date().toTimeString().split(' ')[0]}] ${packet}`;
+            }
+            
+            terminal3.appendChild(line);
+            if (terminal3.children.length > 30) {
+                terminal3.removeChild(terminal3.firstChild);
+            }
+            terminal3.scrollTop = terminal3.scrollHeight;
+            setTimeout(analyzePackets, Math.random() * 500 + 100);
+        }
+
+        // Terminal 4: Enhanced exploit framework with story progression
+        const terminal4 = window4.contentElement;
+        const exploitSets = [
+            {
+                title: 'RECONNAISSANCE PHASE',
+                exploits: [
+                    { name: 'Network Mapping', success: 0.8 },
+                    { name: 'Service Detection', success: 0.9 },
+                    { name: 'OS Fingerprinting', success: 0.7 }
+                ]
+            },
+            {
+                title: 'EXPLOITATION PHASE',
+                exploits: [
+                    { name: 'Buffer Overflow', success: 0.5 },
+                    { name: 'SQL Injection', success: 0.7 },
+                    { name: 'XSS Payload', success: 0.8 }
+                ]
+            },
+            {
+                title: 'POST-EXPLOITATION',
+                exploits: [
+                    { name: 'Privilege Escalation', success: 0.4 },
+                    { name: 'Persistence Module', success: 0.6 },
+                    { name: 'Data Exfiltration', success: 0.3 }
+                ]
+            }
+        ];
+
+        let currentExploitSet = 0;
+        function runExploitSet() {
+            const exploitSet = exploitSets[currentExploitSet];
+            terminal4.innerHTML = `<div class="warning">⚠ ${exploitSet.title} ⚠</div>`;
+            
+            const exploits = exploitSet.exploits.map(e => ({ ...e, progress: 0, status: 'running' }));
+            
+            exploits.forEach((exploit, index) => {
+                const exploitDiv = document.createElement('div');
+                exploitDiv.style.marginTop = '10px';
+                exploitDiv.innerHTML = `
+                    <div>${exploit.name}</div>
+                    <div style="display: flex; align-items: center;">
+                        <span>Progress:</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-${index}"></div>
+                        </div>
+                        <span id="status-${index}" style="margin-left: 10px;">0%</span>
+                    </div>
+                `;
+                terminal4.appendChild(exploitDiv);
+            });
+
+            function updateProgress() {
+                let allComplete = true;
+                
+                exploits.forEach((exploit, index) => {
+                    if (exploit.status === 'running') {
+                        exploit.progress += Math.random() * 5;
+                        
+                        if (exploit.progress >= 100) {
+                            exploit.progress = 100;
+                            const success = Math.random() < exploit.success;
+                            exploit.status = success ? 'success' : 'failed';
+                            
+                            const statusEl = document.getElementById(`status-${index}`);
+                            if (success) {
+                                statusEl.innerHTML = '<span class="success">SUCCESS</span>';
+                                storyState.accessLevel++;
+                            } else {
+                                statusEl.innerHTML = '<span class="error">FAILED</span>';
+                                storyState.detectionLevel++;
+                            }
+                        } else {
+                            allComplete = false;
+                            const progressBar = document.getElementById(`progress-${index}`);
+                            const statusEl = document.getElementById(`status-${index}`);
+                            progressBar.style.width = exploit.progress + '%';
+                            statusEl.textContent = Math.floor(exploit.progress) + '%';
+                        }
+                    }
+                });
+
+                if (!allComplete) {
+                    setTimeout(updateProgress, 200);
+                } else {
+                    // Show phase result
+                    const successCount = exploits.filter(e => e.status === 'success').length;
+                    const totalCount = exploits.length;
+                    const phaseSuccess = successCount > totalCount / 2;
+                    
+                    setTimeout(() => {
+                        const resultDiv = document.createElement('div');
+                        resultDiv.style.marginTop = '20px';
+                        if (phaseSuccess) {
+                            resultDiv.innerHTML = `<div class="success">PHASE COMPLETE: ${successCount}/${totalCount} successful</div>`;
+                            showStatus(`${exploitSet.title} SUCCESSFUL`, 'success');
+                        } else {
+                            resultDiv.innerHTML = `<div class="error">PHASE FAILED: ${successCount}/${totalCount} successful</div>`;
+                            showStatus(`${exploitSet.title} FAILED`, 'error');
+                        }
+                        terminal4.appendChild(resultDiv);
+                        
+                        currentExploitSet = (currentExploitSet + 1) % exploitSets.length;
+                        setTimeout(runExploitSet, 4000);
+                    }, 1000);
+                }
+            }
+            
+            setTimeout(updateProgress, 500);
+        }
+
+        // Trigger security alerts
+        function triggerSecurityAlert() {
+            windows.forEach(window => {
+                window.setAlert(true);
+                setTimeout(() => {
+                    window.setAlert(false);
+                }, 3000);
+            });
+        }
+
+        // Matrix rain effect
+        function createMatrixRain() {
+            const matrix = document.getElementById('matrix-window1');
+            const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*(){}[]<>/\\|~`';
+            
+            for (let i = 0; i < 20; i++) {
+                const column = document.createElement('div');
+                column.className = 'matrix-column';
+                column.style.left = Math.random() * 100 + '%';
+                column.style.animationDuration = Math.random() * 10 + 10 + 's';
+                column.style.animationDelay = Math.random() * 5 + 's';
+                
+                let text = '';
+                for (let j = 0; j < 50; j++) {
+                    text += characters[Math.floor(Math.random() * characters.length)] + '<br>';
+                }
+                column.innerHTML = text;
+                matrix.appendChild(column);
+            }
+        }
+
+        // Story progression monitor
+        setInterval(() => {
+            // Reduce detection level over time
+            if (storyState.detectionLevel > 0) {
+                storyState.detectionLevel -= 0.1;
+            }
+            
+            // Epic moments
+            if (storyState.successCount > 5 && Math.random() > 0.95) {
+                showStatus('MAINFRAME ACCESS ACHIEVED!', 'success', 3000);
+                storyState.successCount = 0;
+            }
+            
+            if (storyState.detectionLevel > 10) {
+                showStatus('SECURITY LOCKDOWN INITIATED!', 'error', 3000);
+                triggerSecurityAlert();
+                storyState.detectionLevel = 5;
+            }
+        }, 5000);
+
+        // Initialize all systems
+        runBreachScenario();
+        monitorSecurity();
+        analyzePackets();
+        runExploitSet();
+        createMatrixRain();
+
+        // Focus first window
+        window1.focus();
+    </script>
+</body>
+</html>
