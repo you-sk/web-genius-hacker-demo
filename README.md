@@ -1,5 +1,6 @@
 # web-genius-hacker-demo
 天才ハッカーがハッキングしてるような感じのやつです。
+
 ハリウッド映画風のハッキングターミナルを再現した観賞用デモです。実際のハッキング機能はありません。
 
 ![image](https://github.com/user-attachments/assets/dc02cfe8-946d-49d2-b3af-be80e96632e2)
